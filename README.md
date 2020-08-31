@@ -2,6 +2,7 @@
 A deep reinforcement learning test environment using generalized tic tac toe, the [mnk game](https://en.wikipedia.org/wiki/M,n,k-game).
 
 ![mnk](/mnk.png)
+
 Here m=11, n=11, and k=5.
 
 ## Outline
