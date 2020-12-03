@@ -34,7 +34,7 @@ def train_q_learning(board: Board, num_rounds: int) -> None:
 
 def main():
     board = Board(num_rows=3, num_cols=3, num_to_win=3)
-    train_q_learning(board, num_rounds=2000)
+    train_q_learning(board, num_rounds=10000)
 
 
 if __name__ == '__main__':
