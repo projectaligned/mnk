@@ -14,6 +14,8 @@ from game_tree import DFSGameTreeNode
 
 class Agent(ABC):
 
+    name = 'AbstractAgent'
+
     def __init__(self, board: Board, player_idx: int):
         self.player_idx = player_idx
         self.board = board
@@ -44,6 +46,8 @@ def get_valid_input(prefix: str, min_val: int, max_val: int) -> int:
 
 class Human(Agent):
 
+    name = "Human"
+
     def move(self):
         print(self.board)
         row_idx = get_valid_input('row', 0, self.board.num_rows - 1)
@@ -57,11 +61,15 @@ class Human(Agent):
 
 class InOrder(Agent):
 
+    name = "InOrder"
+
     def move(self) -> Move:
         return self.board.get_available_moves()[0]
 
 
 class Random(Agent):
+
+    name = "Random"
 
     def move(self) -> Move:
         row_idx = random.randint(0, self.board.num_rows - 1)
@@ -75,6 +83,8 @@ class Random(Agent):
 
 class OneStep(Agent):
 
+    name = "OneStep"
+
     def move(self) -> Move:
         moves = self.board.get_available_moves()
         for move in moves:
@@ -84,6 +94,8 @@ class OneStep(Agent):
 
 
 class OneStepBlocking(Agent):
+
+    name = "OneStepBlocking"
 
     def move(self) -> Move:
         moves = self.board.get_available_moves()
@@ -97,6 +109,8 @@ class OneStepBlocking(Agent):
 
 
 class Minimax(Agent):
+
+    name = "Minimax"
 
     def __init__(self, board: Board, player_idx: int, lookahead_depth: Optional[int] = None, ab_prune: bool = False):
         super().__init__(board, player_idx)
@@ -140,6 +154,8 @@ QTable = DefaultDict[int, float]
 
 
 class TabularQLearning(Agent):
+
+    name = "TabularQLearning"
 
     architecture = 'q_table'
 
@@ -195,6 +211,8 @@ class TabularQLearning(Agent):
 
 
 class DeepQLearning(Agent):
+
+    name = "DeepQLearning"
 
     architecture = 'dqn'
 

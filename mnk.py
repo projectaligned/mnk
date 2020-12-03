@@ -18,7 +18,7 @@ def play_mnk(board: Board, player0: Agent, player1: Agent, verbose: bool = True)
             if outcome in board.tokens:
                 player0.end_game()
                 player1.end_game()
-                printv(f"{player.token} wins!", verbose)
+                printv(f"{player.name} with token {player.token} wins!", verbose)
                 printv(board, verbose)
                 return outcome
             elif outcome == DRAW:
