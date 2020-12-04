@@ -25,6 +25,9 @@ class Agent(ABC):
     def move(self) -> Move:
         raise NotImplementedError
 
+    def state(self) -> Optional[dict]:
+        pass
+
     def end_game(self) -> None:
         pass
 
@@ -157,8 +160,6 @@ class TabularQLearning(Agent):
 
     name = "TabularQLearning"
 
-    architecture = 'q_table'
-
     def __init__(self, board: Board, player_idx: int, discount_rate: float = 0.95, learning_rate: float = 0.9,
                  ignorance_bias: float = 0.1, q_table: Optional[QTable] = None):
         super().__init__(board, player_idx)
@@ -169,21 +170,44 @@ class TabularQLearning(Agent):
         self.q_table: QTable = q_table or self.load_q_table() or self.build_q_table()
 
     def get_file_name(self) -> str:
+        return self.name + '.json'
+
+    def get_table_name(self) -> str:
         return "_".join(
-            [str(self.board.num_rows), str(self.board.num_cols), str(self.board.num_to_win), self.architecture]
-                        ) + '.json'
+            [str(self.board.num_rows), str(self.board.num_cols), str(self.board.num_to_win)]
+                        )
 
     def load_q_table(self) -> Optional[QTable]:
         if os.path.exists(self.get_file_name()):
             with open(self.get_file_name()) as fp:
-                loaded_table = json.load(fp)
+                loaded_state = json.load(fp)
+                table_name = self.get_table_name()
+                loaded_table = loaded_state.get(table_name, dict())
                 q_table = defaultdict(lambda: self.outcome_value[UNDETERMINED])
                 q_table.update(loaded_table)
             return q_table
 
     def save_q_table(self) -> None:
         with open(self.get_file_name(), 'w') as fp:
-            json.dump(self.q_table, fp)
+            loaded_state = json.load(fp)
+            table_name = self.get_table_name()
+            loaded_table = loaded_state[table_name]
+            loaded_table.update(self.q_table)
+            loaded_state[table_name] = loaded_table
+            json.dump(loaded_state, fp)
+
+    def increment_games_played(self) -> None:
+        with open(self.get_file_name(), 'w') as fp:
+            loaded_state = json.load(fp)
+            label = self.get_table_name() + "_games_played"
+            loaded_state[label] += 1
+            json.dump(loaded_state, fp)
+
+    def state(self) -> dict:
+        with open(self.get_file_name(), 'w') as fp:
+            loaded_state = json.load(fp)
+            label = self.get_table_name() + "_games_played"
+            return {label: loaded_state[label]}
 
     def build_q_table(self) -> QTable:
         return defaultdict(lambda: self.outcome_value[UNDETERMINED] + self.ignorance_bias)

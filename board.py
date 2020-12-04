@@ -109,6 +109,9 @@ class Board:
         state_clone[col_idx + num_cols * row_idx] = token
         return state_clone
 
+    def serializable_history(self) -> List[List[int]]:
+        return [list(move) for move in self.history]
+
 
 def get_winning_sets(num_rows: int, num_cols: int, num_to_win: int) -> WinningSets:
     horizontal_starts = []

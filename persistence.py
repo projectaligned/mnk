@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 
 from sqlalchemy import create_engine, Table, Column, INTEGER, String, MetaData, JSON, ARRAY, DateTime, sql
 
@@ -6,6 +6,9 @@ from dataclasses import dataclass
 
 import git
 import pandas as pd
+
+from agents import Agent
+from board import Board
 
 engine = create_engine('sqlite://', echo=True)
 
@@ -22,7 +25,7 @@ games = Table(
     Column('NUM_ROWS', INTEGER, nullable=False),
     Column('NUM_COLS', INTEGER, nullable=False),
     Column('NUM_TO_WIN', INTEGER, nullable=False),
-    Column('BOARD_STATE', ARRAY, nullable=False),
+    Column('MOVE_HISTORY', JSON, nullable=False),
     Column('GIT_HASH', String, nullable=False),
     Column('TIMESTAMP', DateTime(timezone=False), nullable=False, server_default=sql.func.now())
 )
@@ -45,11 +48,25 @@ class Game:
     player_two_state: Optional[dict]
     winner: str
     num_rows: int
-    num_rols: int
+    num_cols: int
     num_to_win: int
-    board_state: list
+    move_history: List[List[int]]
     git_hash: str = get_git_hash()
 
     def store(self):
         df = pd.Dataframe(self)
         df.to_sql(games.name, con=engine)
+
+
+def store_game(board: Board, player_one: Agent, player_two: Agent, winner: str) -> None:
+    game = Game(player_one=player_one.name,
+                player_one_state=player_one.state(),
+                player_two=player_two.name,
+                player_two_state=player_two.state(),
+                winner=winner,
+                num_rows=board.num_rows,
+                num_cols=board.num_cols,
+                num_to_win=board.num_to_win,
+                move_history=board.serializable_history()
+                )
+    game.store()

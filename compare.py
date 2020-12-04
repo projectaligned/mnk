@@ -14,9 +14,9 @@ def compare_players(player1_type: Type[Agent], player2_type: Type[Agent], board:
         player2 = player2_type(board_clone, player_idx=1)
         outcomes.append(play_mnk(board_clone, player1, player2, verbose=False))
 
-    player1_wins = len([w for w in outcomes if w == player1.token])
-    player2_wins = len([w for w in outcomes if w == player2.token])
-    draws = len([w for w in outcomes if w is DRAW])
+    player1_wins = len([w for w in outcomes if w == player1_type.name])
+    player2_wins = len([w for w in outcomes if w == player2_type.name])
+    draws = len([w for w in outcomes if w is None])
     print(f'{num_rounds} games played.')
     print(f'player1 won {float(player1_wins) / num_rounds * 100.:.2f} of the games')
     print(f'player2 won {float(player2_wins) / num_rounds * 100.:.2f} of the games')
