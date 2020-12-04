@@ -10,7 +10,7 @@ import pandas as pd
 from agents import Agent
 from board import Board
 
-engine = create_engine('sqlite://', echo=True)
+engine = create_engine('sqlite:///mnk.db', echo=True)
 
 meta = MetaData()
 
@@ -56,7 +56,7 @@ class Game:
     def store(self):
 
         df = pd.DataFrame([asdict(self)])
-        df.to_sql(games.name, con=engine)
+        df.to_sql(games.name, con=engine, if_exists="append", index=False)
 
 
 def store_game(board: Board, player_one: Agent, player_two: Agent, winner: str) -> None:
