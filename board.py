@@ -1,3 +1,4 @@
+import json
 from typing import List, Set, Tuple, Optional
 
 BLANK = '-'
@@ -109,8 +110,8 @@ class Board:
         state_clone[col_idx + num_cols * row_idx] = token
         return state_clone
 
-    def serializable_history(self) -> List[List[int]]:
-        return [list(move) for move in self.history]
+    def serializable_history(self) -> str:
+        return json.dumps([list(move) for move in self.history])
 
 
 def get_winning_sets(num_rows: int, num_cols: int, num_to_win: int) -> WinningSets:

@@ -178,36 +178,56 @@ class TabularQLearning(Agent):
                         )
 
     def load_q_table(self) -> Optional[QTable]:
-        if os.path.exists(self.get_file_name()):
-            with open(self.get_file_name()) as fp:
-                loaded_state = json.load(fp)
-                table_name = self.get_table_name()
-                loaded_table = loaded_state.get(table_name, dict())
-                q_table = defaultdict(lambda: self.outcome_value[UNDETERMINED])
-                q_table.update(loaded_table)
-            return q_table
+        if not os.path.exists(self.get_file_name()):
+            wfp = open(self.get_file_name(), 'w')
+            json.dump({}, wfp)
+            wfp.close()
+            return None
+
+        rfp = open(self.get_file_name(), 'r')
+        loaded_state = json.load(rfp)
+        rfp.close()
+
+        table_name = self.get_table_name()
+        loaded_table = loaded_state.get(table_name, dict())
+        q_table = defaultdict(lambda: self.outcome_value[UNDETERMINED])
+        q_table.update(loaded_table)
+        return q_table
 
     def save_q_table(self) -> None:
-        with open(self.get_file_name(), 'w') as fp:
-            loaded_state = json.load(fp)
-            table_name = self.get_table_name()
-            loaded_table = loaded_state[table_name]
-            loaded_table.update(self.q_table)
-            loaded_state[table_name] = loaded_table
-            json.dump(loaded_state, fp)
+        rfp = open(self.get_file_name(), 'r')
+        loaded_state = json.load(rfp)
+        rfp.close()
+
+        table_name = self.get_table_name()
+        loaded_table = loaded_state.get(table_name, {})
+        loaded_table.update(self.q_table)
+        loaded_state[table_name] = loaded_table
+
+        wfp = open(self.get_file_name(), 'w')
+        json.dump(loaded_state, wfp)
+        wfp.close()
 
     def increment_games_played(self) -> None:
-        with open(self.get_file_name(), 'w') as fp:
-            loaded_state = json.load(fp)
-            label = self.get_table_name() + "_games_played"
-            loaded_state[label] += 1
-            json.dump(loaded_state, fp)
+        rfp = open(self.get_file_name(), 'r')
+        loaded_state = json.load(rfp)
+        rfp.close()
 
-    def state(self) -> dict:
-        with open(self.get_file_name(), 'w') as fp:
-            loaded_state = json.load(fp)
-            label = self.get_table_name() + "_games_played"
-            return {label: loaded_state[label]}
+        games_played_label = self.get_table_name() + "_games_played"
+        games_played = loaded_state.get(games_played_label, 0)
+        loaded_state[games_played_label] = games_played + 1
+
+        wfp = open(self.get_file_name(), 'w')
+        json.dump(loaded_state, wfp)
+        wfp.close()
+
+    def state(self) -> str:
+        rfp = open(self.get_file_name(), 'r')
+        loaded_state = json.load(rfp)
+        rfp.close()
+
+        label = self.get_table_name() + "_games_played"
+        return json.dumps({label: loaded_state[label]})
 
     def build_q_table(self) -> QTable:
         return defaultdict(lambda: self.outcome_value[UNDETERMINED] + self.ignorance_bias)
@@ -231,6 +251,7 @@ class TabularQLearning(Agent):
             best_child_score = max([self.q_table[hash(board)] for (_, board) in board.get_child_boards()])
             self.q_table[hash(board)] = ((1 - self.learning_rate) * self.q_table[hash(board)] +
                                          self.learning_rate * self.discount_rate * best_child_score)
+        self.increment_games_played()
         self.save_q_table()
 
 
@@ -305,3 +326,4 @@ class DeepQLearning(Agent):
                      self.learning_rate * self.discount_rate * best_child_score)
             self.model.fit(board.one_hot_encode(), score, callbacks=[cp_callback])
         self.save_model()
+

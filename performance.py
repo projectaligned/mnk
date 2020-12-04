@@ -12,7 +12,9 @@ def get_performance(max_size: int = 10, min_size: int = 3):
         print(t2 - t1)
 
 
-def build_pareto_frontier:
+def build_pareto_frontier():
+    pass
+
 
 if __name__ == "__main__":
     get_performance()

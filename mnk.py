@@ -37,9 +37,9 @@ def play_mnk(board: Board, player0: Agent, player1: Agent, verbose: bool = True)
 
 def main():
     from agents import Minimax, TabularQLearning, Human, InOrder, DeepQLearning, Random
-    board = Board(num_rows=5, num_cols=5, num_to_win=5)
+    board = Board(num_rows=3, num_cols=3, num_to_win=3)
     #player_one = FullGameTree(board.tokens, player_idx=0)
-    player_one = DeepQLearning(board, player_idx=0)
+    player_one = TabularQLearning(board, player_idx=0)
     player_two = Random(board, player_idx=1)
     #player_two = Minimax(board, player_idx=1)
     #player_two = Human(board.tokens, player_idx=1)

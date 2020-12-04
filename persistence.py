@@ -2,7 +2,7 @@ from typing import Optional, List
 
 from sqlalchemy import create_engine, Table, Column, INTEGER, String, MetaData, JSON, ARRAY, DateTime, sql
 
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 
 import git
 import pandas as pd
@@ -18,7 +18,7 @@ games = Table(
     'GAME', meta,
     Column('GAME_ID', INTEGER, primary_key=True, autoincrement=True),
     Column('PLAYER_ONE', String, nullable=False),
-    Column('PLAYER_ONE_STATE', JSON, nullable=True),
+    Column('PLAYER_ONE_STATE', JSON, nullable=True, ),
     Column('PLAYER_TWO', String, nullable=False),
     Column('PLAYER_TWO_STATE', JSON, nullable=True),
     Column('WINNER', String, nullable=False),
@@ -43,18 +43,19 @@ def get_git_hash() -> str:
 @dataclass
 class Game:
     player_one: str
-    player_one_state: Optional[dict]
+    player_one_state: Optional[str]
     player_two: str
-    player_two_state: Optional[dict]
+    player_two_state: Optional[str]
     winner: str
     num_rows: int
     num_cols: int
     num_to_win: int
-    move_history: List[List[int]]
+    move_history: str
     git_hash: str = get_git_hash()
 
     def store(self):
-        df = pd.Dataframe(self)
+
+        df = pd.DataFrame([asdict(self)])
         df.to_sql(games.name, con=engine)
 
 
@@ -70,3 +71,7 @@ def store_game(board: Board, player_one: Agent, player_two: Agent, winner: str) 
                 move_history=board.serializable_history()
                 )
     game.store()
+
+
+if __name__ == "__main__":
+    create_tables()
