@@ -227,7 +227,10 @@ class TabularQLearning(Agent):
         rfp.close()
 
         label = self.get_table_name() + "_games_played"
-        return json.dumps({label: loaded_state[label]})
+        return json.dumps({label: loaded_state[label],
+                           'discount_rate': self.discount_rate,
+                           'learning_rate': self.learning_rate,
+                           'ignorance_bias': self.ignorance_bias})
 
     def build_q_table(self) -> QTable:
         return defaultdict(lambda: self.outcome_value[UNDETERMINED] + self.ignorance_bias)

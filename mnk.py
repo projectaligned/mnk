@@ -14,7 +14,7 @@ def printv(_str: Any, verbose: bool):
 def play_mnk(board: Board, player0: Agent, player1: Agent, verbose: bool = True) -> Optional[str]:
     while True:
         for player in (player0, player1):
-            print(f"{player.name} Making Move")
+            printv(f"{player.name} Making Move", verbose)
             t1 = time.perf_counter()
             move = player.move()
             t2 = time.perf_counter()

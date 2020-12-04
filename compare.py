@@ -4,6 +4,7 @@ from typing import Type
 from agents import Random, InOrder, Agent, TabularQLearning, DeepQLearning
 from mnk import play_mnk
 from board import DRAW, Board
+import matplotlib.pyplot as plt
 
 
 def compare_players(player1_type: Type[Agent], player2_type: Type[Agent], board: Board, num_rounds: int):
@@ -26,7 +27,7 @@ def compare_players(player1_type: Type[Agent], player2_type: Type[Agent], board:
 def main():
     board = Board(num_rows=3, num_cols=3, num_to_win=3)
     t1 = time.perf_counter()
-    compare_players(DeepQLearning, Random, board, 100)
+    compare_players(TabularQLearning, Random, board, 100)
     t2 = time.perf_counter()
     print(t2 - t1)
 
