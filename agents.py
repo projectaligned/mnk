@@ -1,4 +1,5 @@
 import json
+import math
 import os
 import random
 from abc import ABC
@@ -116,6 +117,9 @@ class Minimax(Agent):
     name = "Minimax"
 
     def __init__(self, board: Board, player_idx: int, lookahead_depth: Optional[int] = None, ab_prune: bool = False):
+        """
+        Uses the minimax algorithm with alpha-beta pruning
+        """
         super().__init__(board, player_idx)
         self.active_node: Optional[DFSGameTreeNode] = DFSGameTreeNode(self.board.clone(), ab_prune=ab_prune)
         self.lookahead_depth = lookahead_depth
@@ -160,13 +164,23 @@ class TabularQLearning(Agent):
 
     name = "TabularQLearning"
 
-    def __init__(self, board: Board, player_idx: int, discount_rate: float = 0.95, learning_rate: float = 0.9,
-                 ignorance_bias: float = 0.1, q_table: Optional[QTable] = None):
+    def __init__(self, board: Board, player_idx: int,
+                 discount_rate: float = 0.95,
+                 learning_rate: float = 0.1,
+                 ignorance_bias: float = 0.1,
+                 q_table: Optional[QTable] = None,
+                 counter: Optional[int] = None,
+                 max_counter: Optional[int] = None):
         super().__init__(board, player_idx)
         self.outcome_value = {self.token: 1., DRAW: 0., UNDETERMINED: 0., self.opponent_token: -1.}
+        self.ignorance_bias = ignorance_bias
         self.discount_rate = discount_rate
         self.learning_rate = learning_rate
-        self.ignorance_bias = ignorance_bias
+        # The greediness should start high, near 1, and then decrease to zero over the course of the trials
+        if counter and max_counter:
+            self.epsilon_greedy = 0.5 * (1 - math.ceil(float(counter+1) / float(max_counter) * 10) / 10)
+        else:
+            self.epsilon_greedy = 0.1
         self.q_table: QTable = q_table or self.load_q_table() or self.build_q_table()
 
     def get_file_name(self) -> str:
@@ -190,7 +204,7 @@ class TabularQLearning(Agent):
 
         table_name = self.get_table_name()
         loaded_table = loaded_state.get(table_name, dict())
-        q_table = defaultdict(lambda: self.outcome_value[UNDETERMINED])
+        q_table = defaultdict(lambda: self.outcome_value[UNDETERMINED] + self.ignorance_bias)
         q_table.update(loaded_table)
         return q_table
 
@@ -237,9 +251,15 @@ class TabularQLearning(Agent):
 
     def move(self) -> Move:
         scored_moves = [(move, self.q_table[hash(board)]) for (move, board) in self.board.get_child_boards()]
+        all_moves, _ = list(zip(*scored_moves))
         best_score = max([score for (_, score) in scored_moves])
         best_moves = [move for (move, score) in scored_moves if score >= best_score]
-        return random.sample(best_moves, k=1)[0]
+        # pick one of the best moves if we are taking the greedy action
+        # pick one of all the moves if are exploring.
+        if random.random() > self.epsilon_greedy:
+            return random.sample(best_moves, k=1)[0]
+        else:
+            return random.sample(all_moves, k=1)[0]
 
     def end_game(self) -> None:
         self.q_table[hash(self.board)] = self.outcome_value[self.board.get_outcome()]
@@ -250,10 +270,14 @@ class TabularQLearning(Agent):
             active_board = active_board.make_child_board(move)
             intermediate_boards.append(active_board)
 
-        for board in reversed(intermediate_boards):
+        # the moves are stored in the history from early to late
+        # but we want to iterate over the boards from late to early so that we can update the earlier board score based
+        # on the later board scores.
+        for move_idx, board in reversed(list(enumerate(intermediate_boards))):
+            discount = self.discount_rate ** move_idx
             best_child_score = max([self.q_table[hash(board)] for (_, board) in board.get_child_boards()])
             self.q_table[hash(board)] = ((1 - self.learning_rate) * self.q_table[hash(board)] +
-                                         self.learning_rate * self.discount_rate * best_child_score)
+                                         self.learning_rate * discount * best_child_score)
         self.increment_games_played()
         self.save_q_table()
 

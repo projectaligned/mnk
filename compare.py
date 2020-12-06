@@ -4,7 +4,6 @@ from typing import Type
 from agents import Random, InOrder, Agent, TabularQLearning, DeepQLearning
 from mnk import play_mnk
 from board import DRAW, Board
-import matplotlib.pyplot as plt
 
 
 def compare_players(player1_type: Type[Agent], player2_type: Type[Agent], board: Board, num_rounds: int):
@@ -18,10 +17,14 @@ def compare_players(player1_type: Type[Agent], player2_type: Type[Agent], board:
     player1_wins = len([w for w in outcomes if w == player1_type.name])
     player2_wins = len([w for w in outcomes if w == player2_type.name])
     draws = len([w for w in outcomes if w is None])
+    player_1_win_fraction = float(player1_wins) / float(num_rounds)
+    player_2_win_fraction = float(player2_wins) / float(num_rounds)
+    draw_fraction = float(draws) / float(num_rounds)
     print(f'{num_rounds} games played.')
-    print(f'player1 won {float(player1_wins) / num_rounds * 100.:.2f} of the games')
-    print(f'player2 won {float(player2_wins) / num_rounds * 100.:.2f} of the games')
-    print(f'{float(draws) / num_rounds * 100.:.2f} of the games ended in a draw')
+    print(f'player1 won {player_1_win_fraction * 100.:.2f} of the games')
+    print(f'player2 won {player_2_win_fraction * 100.:.2f} of the games')
+    print(f'{draw_fraction * 100.:.2f} of the games ended in a draw')
+    return player_1_win_fraction, player_2_win_fraction, draws
 
 
 def main():
