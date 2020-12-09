@@ -4,7 +4,7 @@ import os
 import random
 from abc import ABC
 from collections import defaultdict
-from typing import Optional, DefaultDict
+from typing import Optional, DefaultDict, List
 
 import tensorflow as tf
 from tensorflow import keras
@@ -161,6 +161,9 @@ QTable = DefaultDict[int, float]
 
 
 class TabularQLearning(Agent):
+    """
+    Optionally performs Double Q-Learning if selected.
+    """
 
     name = "TabularQLearning"
 
@@ -168,7 +171,9 @@ class TabularQLearning(Agent):
                  discount_rate: float = 0.95,
                  learning_rate: float = 0.1,
                  ignorance_bias: float = 0.1,
-                 q_table: Optional[QTable] = None,
+                 q_table_a: Optional[QTable] = None,
+                 q_table_b: Optional[QTable] = None,
+                 use_double_q_table: bool = True,
                  counter: Optional[int] = None,
                  max_counter: Optional[int] = None):
         super().__init__(board, player_idx)
@@ -181,66 +186,66 @@ class TabularQLearning(Agent):
             self.epsilon_greedy = 0.5 * (1 - math.ceil(float(counter+1) / float(max_counter) * 10) / 10)
         else:
             self.epsilon_greedy = 0.1
-        self.q_table: QTable = q_table or self.load_q_table() or self.build_q_table()
+        self.q_table_a: QTable = q_table_a or self.load_q_table('a') or self.build_q_table()
+        self.use_double_q_table = use_double_q_table
+        if self.use_double_q_table:
+            self.q_table_b: QTable = q_table_b or self.load_q_table('b') or self.build_q_table()
 
     def get_file_name(self) -> str:
         return self.name + '.json'
 
-    def get_table_name(self) -> str:
+    def get_table_name(self, suffix: str) -> str:
         return "_".join(
-            [str(self.board.num_rows), str(self.board.num_cols), str(self.board.num_to_win)]
+            [str(self.board.num_rows), str(self.board.num_cols), str(self.board.num_to_win), suffix]
                         )
 
-    def load_q_table(self) -> Optional[QTable]:
+    def load_q_table(self, suffix: str) -> Optional[QTable]:
         if not os.path.exists(self.get_file_name()):
-            wfp = open(self.get_file_name(), 'w')
-            json.dump({}, wfp)
-            wfp.close()
+            with open(self.get_file_name(), 'w') as wfp:
+                json.dump({}, wfp)
             return None
 
-        rfp = open(self.get_file_name(), 'r')
-        loaded_state = json.load(rfp)
-        rfp.close()
+        with open(self.get_file_name(), 'r') as rfp:
+            loaded_state = json.load(rfp)
+            table_name = self.get_table_name(suffix)
+            loaded_table = loaded_state.get(table_name, dict())
+            q_table = defaultdict(lambda: self.outcome_value[UNDETERMINED] + self.ignorance_bias)
+            q_table.update(loaded_table)
+            return q_table
 
-        table_name = self.get_table_name()
-        loaded_table = loaded_state.get(table_name, dict())
-        q_table = defaultdict(lambda: self.outcome_value[UNDETERMINED] + self.ignorance_bias)
-        q_table.update(loaded_table)
-        return q_table
+    def save_q_table(self, suffix: str) -> None:
+        with open(self.get_file_name(), 'r') as rfp:
+            loaded_state = json.load(rfp)
 
-    def save_q_table(self) -> None:
-        rfp = open(self.get_file_name(), 'r')
-        loaded_state = json.load(rfp)
-        rfp.close()
-
-        table_name = self.get_table_name()
+        table_name = self.get_table_name(suffix)
         loaded_table = loaded_state.get(table_name, {})
-        loaded_table.update(self.q_table)
+        if suffix == 'a':
+            loaded_table.update(self.q_table_a)
+        if suffix == 'b':
+            loaded_table.update(self.q_table_b)
         loaded_state[table_name] = loaded_table
 
-        wfp = open(self.get_file_name(), 'w')
-        json.dump(loaded_state, wfp)
-        wfp.close()
+        with open(self.get_file_name(), 'w') as wfp:
+            json.dump(loaded_state, wfp)
 
-    def increment_games_played(self) -> None:
-        rfp = open(self.get_file_name(), 'r')
-        loaded_state = json.load(rfp)
-        rfp.close()
+    def increment_games_played(self, suffix: str) -> None:
+        with open(self.get_file_name(), 'r+') as fp:
+            loaded_state = json.load(fp)
 
-        games_played_label = self.get_table_name() + "_games_played"
+        games_played_label = self.get_table_name(suffix) + "_games_played"
         games_played = loaded_state.get(games_played_label, 0)
         loaded_state[games_played_label] = games_played + 1
 
-        wfp = open(self.get_file_name(), 'w')
-        json.dump(loaded_state, wfp)
-        wfp.close()
+        with open(self.get_file_name(), 'w') as wfp:
+            json.dump(loaded_state, wfp)
 
     def state(self) -> str:
-        rfp = open(self.get_file_name(), 'r')
-        loaded_state = json.load(rfp)
-        rfp.close()
+        with open(self.get_file_name(), 'r') as fp:
+            loaded_state = json.load(fp)
 
-        label = self.get_table_name() + "_games_played"
+        # since I am sharing a table for single and double q learning, I am just going to store the total number of
+        # games played in 'a'
+        label = self.get_table_name('a') + "_games_played"
         return json.dumps({label: loaded_state[label],
                            'discount_rate': self.discount_rate,
                            'learning_rate': self.learning_rate,
@@ -250,36 +255,54 @@ class TabularQLearning(Agent):
         return defaultdict(lambda: self.outcome_value[UNDETERMINED] + self.ignorance_bias)
 
     def move(self) -> Move:
-        scored_moves = [(move, self.q_table[hash(board)]) for (move, board) in self.board.get_child_boards()]
-        all_moves, _ = list(zip(*scored_moves))
-        best_score = max([score for (_, score) in scored_moves])
-        best_moves = [move for (move, score) in scored_moves if score >= best_score]
-        # pick one of the best moves if we are taking the greedy action
-        # pick one of all the moves if are exploring.
+        # explore
+        all_moves = self.board.get_available_moves()
         if random.random() > self.epsilon_greedy:
-            return random.sample(best_moves, k=1)[0]
-        else:
             return random.sample(all_moves, k=1)[0]
 
+        # exploit
+        if self.use_double_q_table:
+            scored_moves = [(move, sum([self.q_table_a[hash(board)], self.q_table_b[hash(board)]]) / 2.)
+                            for (move, board) in self.board.get_child_boards()]
+        else:
+            scored_moves = [(move, self.q_table_a[hash(board)]) for (move, board) in self.board.get_child_boards()]
+        best_score = max([score for (_, score) in scored_moves])
+        best_moves = [move for (move, score) in scored_moves if score >= best_score]
+        return random.sample(best_moves, k=1)[0]
+
+    def update_q_table(self, intermediate_boards: List[Board], target_table: QTable, reference_table: QTable) -> None:
+        target_table[hash(self.board)] = self.outcome_value[self.board.get_outcome()]
+        for move_idx, board in reversed(list(enumerate(intermediate_boards))):
+            best_child_score = max([reference_table[hash(board)] for (_, board) in board.get_child_boards()])
+            target_table[hash(board)] = (
+                    target_table[hash(board)] +
+                    self.learning_rate * (self.learning_rate * self.discount_rate * best_child_score -
+                                          target_table[hash(board)]))
+
     def end_game(self) -> None:
-        self.q_table[hash(self.board)] = self.outcome_value[self.board.get_outcome()]
 
         active_board = Board(self.board.num_rows, self.board.num_cols, self.board.num_to_win, self.board.winning_sets)
         intermediate_boards = [active_board]
+        # the moves are stored in the history from early to late
+        # but we want to iterate over the boards from late to early so that we can update the earlier board score based
+        # on the later board scores.
         for move in self.board.history[:-1]:
             active_board = active_board.make_child_board(move)
             intermediate_boards.append(active_board)
 
-        # the moves are stored in the history from early to late
-        # but we want to iterate over the boards from late to early so that we can update the earlier board score based
-        # on the later board scores.
-        for move_idx, board in reversed(list(enumerate(intermediate_boards))):
-            discount = self.discount_rate ** move_idx
-            best_child_score = max([self.q_table[hash(board)] for (_, board) in board.get_child_boards()])
-            self.q_table[hash(board)] = ((1 - self.learning_rate) * self.q_table[hash(board)] +
-                                         self.learning_rate * discount * best_child_score)
-        self.increment_games_played()
-        self.save_q_table()
+        if self.use_double_q_table:
+            if bool(random.getrandbits(1)):
+                self.update_q_table(intermediate_boards, self.q_table_a, self.q_table_b)
+            else:
+                self.update_q_table(intermediate_boards, self.q_table_b, self.q_table_a)
+        else:
+            self.update_q_table(intermediate_boards, self.q_table_a, self.q_table_a)
+
+        self.increment_games_played('a')
+        self.save_q_table('a')
+        if self.use_double_q_table:
+            self.save_q_table('b')
+            self.increment_games_played('b')
 
 
 class DeepQLearning(Agent):
